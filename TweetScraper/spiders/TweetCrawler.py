@@ -17,7 +17,7 @@ class TweetScraper(CrawlSpider):
     name = 'TweetScraper'
     allowed_domains = ['twitter.com']
 
-    def __init__(self, query=''):
+    def __init__(self, query='', save_path=''):
         self.url = (
             f'https://api.twitter.com/2/search/adaptive.json?'
             f'include_profile_interstitial_type=1'
@@ -50,6 +50,7 @@ class TweetScraper(CrawlSpider):
         )
         self.url = self.url + '&q={query}'
         self.query = query
+        self.fp = open(save_path, 'at')
         self.num_search_issued = 0
         # regex for finding next cursor
         self.cursor_re = re.compile('"(scroll:[^"]*)"')
@@ -106,7 +107,7 @@ class TweetScraper(CrawlSpider):
 
         self.num_search_issued += 1
         if self.num_search_issued % 100 == 0:
-            # get new SeleniumMiddleware            
+            # get new SeleniumMiddleware
             for m in self.crawler.engine.downloader.middleware.middlewares:
                 if isinstance(m, SeleniumMiddleware):
                     m.spider_closed()
@@ -123,10 +124,12 @@ class TweetScraper(CrawlSpider):
 
         # handle current page
         data = json.loads(response.text)
-        for item in self.parse_tweet_item(data['globalObjects']['tweets']):
-            yield item
-        for item in self.parse_user_item(data['globalObjects']['users']):
-            yield item
+        for tweet in data['globalObjects']['tweets'].values():
+            self.fp.write(tweet['full_text'].replace('\n', ' ') + '\n')
+        #for item in self.parse_tweet_item(data['globalObjects']['tweets']):
+        #    yield item
+        #for item in self.parse_user_item(data['globalObjects']['users']):
+        #    yield item
 
         # get next page
         cursor = self.cursor_re.search(response.text).group(1)
